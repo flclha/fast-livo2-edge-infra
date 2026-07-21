@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Robust FAST-LIVO2 startup for MID360 + UVC camera on this NUC.
+# Usage:
+#   bash "$HOME/Desktop/start_slam"
+# This script starts RViz by default on the NUC logged-in desktop.
+# If the physical UVC camera is missing, the script exits with an error.
+
+LOG_DIR="$HOME/slam_logs"
+PCD_DIR="$HOME/catkin_ws/src/FAST-LIVO2/Log/PCD"
+RUN_ID="$(date +%Y%m%d_%H%M%S)"
+LIVOX_IP="192.168.1.5"
+LIVOX_IFACE="enp86s0"
+CAMERA_DEV="${CAMERA_DEV:-/dev/video0}"
+START_RVIZ="${START_RVIZ:-1}"
+
+mkdir -p "$LOG_DIR" "$PCD_DIR"
+
+archive_pcd_results() {
+  local tag="$1"
+  local ts
+  local out_dir
+  local saved=0
+  ts="$(date +%Y%m%d_%H%M%S)"
+  out_dir="$PCD_DIR/${tag}_${ts}"
+  mkdir -p "$out_dir"
+
+  if [ -s "$PCD_DIR/all_raw_points.pcd" ]; then
+    cp -a "$PCD_DIR/all_raw_points.pcd" "$out_dir/all_raw_points.pcd"
+    echo "Copied previous raw PCD: $out_dir/all_raw_points.pcd"
+    saved=1
+  fi
+
+  if [ -s "$PCD_DIR/all_downsampled_points.pcd" ]; then
+    cp -a "$PCD_DIR/all_downsampled_points.pcd" "$out_dir/all_downsampled_points.pcd"
+    echo "Copied previous downsampled PCD: $out_dir/all_downsampled_points.pcd"
+    saved=1
+  fi
+
+  while IFS= read -r -d '' pcd_file; do
+    cp -a "$pcd_file" "$out_dir/"
+    echo "Copied previous segmented PCD: $out_dir/$(basename "$pcd_file")"
+    saved=1
+  done < <(find "$PCD_DIR" -maxdepth 1 -type f -regextype posix-extended -regex '.*/[0-9]+\.pcd' -print0 | sort -z)
+
+  if [ -s "$PCD_DIR/scans_pos.json" ]; then
+    cp -a "$PCD_DIR/scans_pos.json" "$out_dir/scans_pos.json"
+    echo "Copied previous scan poses: $out_dir/scans_pos.json"
+    saved=1
+  fi
+
+  if [ "$saved" = "0" ]; then
+    rmdir "$out_dir" 2>/dev/null || true
+  else
+    echo "Copied previous PCD output directory: $out_dir"
+  fi
+
+  return 0
+}
+
+echo "[1/9] Stop old SLAM screens and archive previous PCD"
+if screen -ls | grep -q 'fast_livo_mapping'; then
+  screen -S fast_livo_mapping -X stuff $'' >/dev/null 2>&1 || true
+  sleep 6
+  screen -S fast_livo_mapping -X quit >/dev/null 2>&1 || true
+  sleep 2
+  archive_pcd_results "slam_previous"
+else
+  archive_pcd_results "slam_previous"
+fi
+for s in camera_driver fake_camera livox_driver2 mid360_repub mid360_imu_repub uvc_image_stamp_relay mid360_to_car_tf roscore; do
+  screen -S "$s" -X quit >/dev/null 2>&1 || true
+done
+sleep 1
+
+echo "[2/9] Preflight checks"
+command -v screen >/dev/null || { echo "ERROR: screen is not installed"; exit 1; }
+[ -d "$HOME/catkin_ws/devel" ] || { echo "ERROR: missing $HOME/catkin_ws/devel"; exit 1; }
+[ -d "$HOME/ws_livox/devel" ] || { echo "ERROR: missing $HOME/ws_livox/devel"; exit 1; }
+
+echo "[3/9] Prepare camera"
+sudo modprobe uvcvideo 2>/dev/null || true
+for i in $(seq 1 10); do
+  [ -e "$CAMERA_DEV" ] && break
+  sleep 0.5
+done
+if [ ! -e "$CAMERA_DEV" ]; then
+  echo "ERROR: $CAMERA_DEV not found. Plug in or power on the UVC camera, then run this file again."
+  exit 1
+fi
+
+echo "[4/9] Configure MID360 network on $LIVOX_IFACE"
+sudo -v
+if ! ip -br addr show dev "$LIVOX_IFACE" | grep -q "$LIVOX_IP/24"; then
+  sudo ip addr add "$LIVOX_IP/24" dev "$LIVOX_IFACE" 2>/dev/null || true
+fi
+sudo ip route replace 192.168.1.0/24 dev "$LIVOX_IFACE" src "$LIVOX_IP"
+
+echo "[5/9] Start roscore"
+screen -L -Logfile "$LOG_DIR/roscore.log" -dmS roscore bash -lc 'source /opt/ros/noetic/setup.bash; roscore'
+for i in $(seq 1 20); do
+  if bash -lc 'source /opt/ros/noetic/setup.bash; rostopic list >/dev/null 2>&1'; then break; fi
+  sleep 0.5
+  [ "$i" -eq 20 ] && { echo "ERROR: roscore did not start; see $LOG_DIR/roscore.log"; exit 1; }
+done
+
+echo "[6/9] Start camera image source and MID360 driver"
+screen -L -Logfile "$LOG_DIR/camera_driver.log" -dmS camera_driver bash -lc 'source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; rosrun mvs_ros_driver uvc_driver ~/catkin_ws/src/mvs_ros_driver/config/uvc_camera.yaml'
+sleep 1
+screen -L -Logfile "$LOG_DIR/livox_driver.log" -dmS livox_driver2 bash -lc 'source /opt/ros/noetic/setup.bash; source ~/ws_livox/devel/setup.bash; roslaunch livox_ros_driver2 msg_MID360.launch'
+sleep 3
+
+echo "[7/9] Start LiDAR/IMU/image timestamp relays"
+screen -L -Logfile "$LOG_DIR/mid360_repub.log" -dmS mid360_repub bash -lc 'source /opt/ros/noetic/setup.bash; source ~/ws_livox/devel/setup.bash; python3 ~/catkin_ws/src/FAST-Calib/scripts/mid360_udp_livox_republisher.py --bind-ip 192.168.1.5 --topic /livox/lidar --publish-hz 10'
+screen -L -Logfile "$LOG_DIR/mid360_imu_repub.log" -dmS mid360_imu_repub bash -lc 'source /opt/ros/noetic/setup.bash; python3 ~/catkin_ws/src/FAST-LIVO2/scripts/mid360_udp_imu_republisher.py --bind-ip 192.168.1.5 --topic /livox/imu'
+screen -L -Logfile "$LOG_DIR/uvc_image_stamp_relay.log" -dmS uvc_image_stamp_relay bash -lc 'source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; python3 ~/catkin_ws/src/FAST-LIVO2/scripts/uvc_image_stamp_relay.py'
+sleep 5
+
+echo "[8/9] Check required topics"
+CHECK_ENV='source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; export ROS_PACKAGE_PATH=$HOME/ws_livox/src:$ROS_PACKAGE_PATH; export PYTHONPATH=$HOME/ws_livox/devel/lib/python3/dist-packages:$PYTHONPATH'
+check_hz() {
+  local topic="$1"
+  local log_name="$2"
+  local out
+  out="$(bash -lc "$CHECK_ENV; timeout 7 rostopic hz $topic" 2>&1 || true)"
+  printf '%s
+' "$out"
+  printf '%s
+' "$out" | grep -q 'average rate:' || { echo "ERROR: $topic has no measurable data; see $log_name"; exit 1; }
+}
+check_hz /livox/lidar "$LOG_DIR/livox_driver.log and $LOG_DIR/mid360_repub.log"
+check_hz /livox/imu "$LOG_DIR/mid360_imu_repub.log"
+check_hz /uvc_camera/image_sync "$LOG_DIR/camera_driver.log and $LOG_DIR/uvc_image_stamp_relay.log"
+
+echo "[9/9] Start FAST-LIVO2 mapping with RViz=$START_RVIZ"
+if [ "$START_RVIZ" = "1" ]; then
+  GUI_ENV="$(systemctl --user show-environment 2>/dev/null || true)"
+  for key in DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR WAYLAND_DISPLAY; do
+    val="$(printf '%s\n' "$GUI_ENV" | sed -n "s/^${key}=//p" | tail -n 1)"
+    [ -n "$val" ] && export "$key=$val"
+  done
+  export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
+fi
+screen -L -Logfile "$LOG_DIR/fast_livo_mapping.log" -dmS fast_livo_mapping bash -lc "source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; export DISPLAY='${DISPLAY:-}'; export XAUTHORITY='${XAUTHORITY:-}'; export DBUS_SESSION_BUS_ADDRESS='${DBUS_SESSION_BUS_ADDRESS:-}'; export XDG_RUNTIME_DIR='${XDG_RUNTIME_DIR:-}'; export QT_QPA_PLATFORM='${QT_QPA_PLATFORM:-xcb}'; roslaunch fast_livo mapping_uvc_mid360_live.launch rviz:=$START_RVIZ"
+sleep 6
+
+if screen -ls | grep -q 'fast_livo_mapping'; then
+  echo "OK: FAST-LIVO2 screen is running. Logs are in $LOG_DIR"
+  if [ "$START_RVIZ" = "1" ]; then
+    if pgrep -af 'rviz.*fast_livo2.rviz' >/dev/null; then
+      echo "OK: RViz process is running on the NUC desktop."
+    else
+      echo "ERROR: RViz process not found; see $LOG_DIR/fast_livo_mapping.log"
+      tail -n 120 "$LOG_DIR/fast_livo_mapping.log" || true
+      exit 1
+    fi
+  fi
+  echo "This run id is: $RUN_ID"
+  echo "FAST-LIVO2 writes PCD output under:"
+  echo "  $PCD_DIR"
+  echo "Use this after mapping to stop and archive PCD output with date:"
+  echo "  bash '$HOME/Desktop/stop_slam'"
+  echo "Final archive directory will look like: $PCD_DIR/slam_${RUN_ID}"
+  screen -ls
+else
+  echo "ERROR: fast_livo_mapping exited; see $LOG_DIR/fast_livo_mapping.log"
+  tail -n 120 "$LOG_DIR/fast_livo_mapping.log" || true
+  exit 1
+fi

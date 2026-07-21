@@ -1,0 +1,8 @@
+prefix=/home/nuc/catkin_ws/install
+
+Name: vikit_py
+Description: Description of vikit_py
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

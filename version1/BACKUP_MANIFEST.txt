@@ -1,0 +1,45 @@
+backup_created_at=2026-07-03T10:23:07+08:00
+host=nuc-NUC15CRKU5
+user=nuc
+backup_root=/home/nuc/backup/version1
+
+Included source/code directories:
+  /home/nuc/catkin_ws/src/FAST-LIVO2 (excluded Log/)
+  /home/nuc/catkin_ws/src/FAST-Calib (excluded calib_data/, calib_databackup/, output/)
+  /home/nuc/catkin_ws/src/mvs_ros_driver
+  /home/nuc/ws_livox/src/livox_ros_driver2
+  /home/nuc/catkin_ws/src/tracer_ros
+  /home/nuc/catkin_ws/src/ugv_sdk
+  /home/nuc/ROS_FASTLIVO_Tracer
+  /home/nuc/fast_livo2_bag_package (excluded large data files)
+
+Desktop entries requested/found:
+  MISSING /home/nuc/Desktop/start
+  MISSING /home/nuc/Desktop/stop
+  FOUND /home/nuc/Desktop/start_slam -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/start_slam
+  FOUND /home/nuc/Desktop/start_slam1 -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/start_slam1
+  FOUND /home/nuc/Desktop/stop_slam -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/stop_slam
+  FOUND /home/nuc/Desktop/start_tracer -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/start_tracer
+  MISSING /home/nuc/Desktop/start_tracer_can
+  FOUND /home/nuc/Desktop/setup_tracer_can -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/setup_tracer_can
+  FOUND /home/nuc/Desktop/tracer_keyboard_control -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/tracer_keyboard_control
+  FOUND /home/nuc/Desktop/tracer_keyboard_control.py -> /home/nuc/ROS_FASTLIVO_Tracer/scripts/tracer_keyboard_control.py
+  MISSING /home/nuc/Desktop/??slam.txt
+
+Known related data intentionally not copied as code backup:
+15G	/home/nuc/catkin_ws/src/FAST-LIVO2/Log
+913M	/home/nuc/catkin_ws/src/FAST-Calib/calib_data
+833M	/home/nuc/catkin_ws/src/FAST-Calib/calib_databackup
+57M	/home/nuc/catkin_ws/src/FAST-Calib/output
+3.8G	/home/nuc/fastlivo2
+175M	/home/nuc/fast_livo2_no_camera_lidar_100s_package.tar.gz
+663M	/home/nuc/fast_livo2_pcd_0520.zip
+
+Backup tree size summary:
+4.0K	/home/nuc/backup/version1/BACKUP_MANIFEST.txt
+390M	/home/nuc/backup/version1/home
+
+Desktop directory recopied at 2026-07-03T10:23:28+08:00, preserving symlinks; resolved executable/link copies are in:
+  /home/nuc/backup/version1/home/nuc/Desktop_resolved
+
+Desktop cleanup at 2026-07-03T10:49:24+08:00: replaced Desktop symlinks with real files from Desktop_resolved and removed Desktop_resolved.

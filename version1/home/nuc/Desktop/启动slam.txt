@@ -1,0 +1,39 @@
+启动slam
+bash "$HOME/Desktop/start_slam1"
+bash "$HOME/catkin_ws/backup/version1/home/nuc/Desktop/start_slam1"
+
+截图
+gnome-screenshot -w -f ~/Desktop/window.png
+
+文件保存
+/home/nuc/catkin_ws/src/FAST-LIVO2/Log/PCD/
+
+
+停止slam
+bash "$HOME/Desktop/stop_slam"
+
+nuc to windows (powershell)
+scp `
+  nuc@192.168.3.36:/home/nuc/catkin_ws/src/FAST-LIVO2/Log/PCD/slam_20260529_170737_raw.pcd `
+  nuc@192.168.3.36:/home/nuc/catkin_ws/src/FAST-LIVO2/Log/PCD/slam_20260529_170737_downsampled.pcd `
+  "$env:USERPROFILE\Desktop\slam\0529\"
+  
+
+pcd to las
+python "C:\Users\dyx\Documents\xwechat_files\wxid_orhxkbv3ghjd22_df31\msg\file\2026-05\pcd_to_las(1).py" "$env:USERPROFILE\Desktop\slam\0529\slam_20260529_170737_downsampled.pcd" "$env:USERPROFILE\Desktop\slam\0529\slam_20260529_170737_downsampled.las"
+
+python "C:\Users\dyx\Documents\xwechat_files\wxid_orhxkbv3ghjd22_df31\msg\file\2026-05\pcd_to_las(1).py" "$env:USERPROFILE\Desktop\slam\0529\slam_20260529_170737_raw.pcd" "$env:USERPROFILE\Desktop\slam\0529\slam_20260529_170737_raw.las"
+
+windows to remote
+double click epyc_trans...
+
+powershell in remote(copy the las file): 
+
+1. epyc_trans...
+
+2.
+$srcDir = "\\tsclient\C\Users\dyx\Desktop\slam\0529"
+$dstDir = "$env:USERPROFILE\Desktop\slam\0529"
+
+mkdir $dstDir -Force
+robocopy $srcDir $dstDir *.las /Z /J /R:3 /W:5

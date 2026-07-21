@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source /opt/ros/noetic/setup.bash
+source "$HOME/catkin_ws/devel/setup.bash"
+
+GUI_ENV="$(systemctl --user show-environment 2>/dev/null || true)"
+for key in DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR WAYLAND_DISPLAY; do
+  val="$(printf '%s\n' "$GUI_ENV" | sed -n "s/^${key}=//p" | tail -n 1)"
+  [ -n "$val" ] && export "$key=$val"
+done
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+exec python3 "$SCRIPT_DIR/tracer_keyboard_control.py" "$@"

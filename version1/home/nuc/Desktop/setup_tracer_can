@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IFACE="${1:-${IFACE:-can0}}"
+BITRATE="${BITRATE:-500000}"
+
+if ! command -v ip >/dev/null 2>&1; then
+  echo "ERROR: ip command not found. Please install iproute2." >&2
+  exit 1
+fi
+
+sudo modprobe gs_usb 2>/dev/null || true
+
+if ! ip link show "$IFACE" >/dev/null 2>&1; then
+  echo "ERROR: CAN interface '$IFACE' not found." >&2
+  echo "Plug in the CAN-USB adapter, then check with: ip link" >&2
+  exit 1
+fi
+
+sudo ip link set "$IFACE" down 2>/dev/null || true
+sudo ip link set "$IFACE" type can bitrate "$BITRATE"
+sudo ip link set "$IFACE" up
+
+echo "Tracer CAN is up: $IFACE @ ${BITRATE} bit/s"
+ip -details link show "$IFACE"
