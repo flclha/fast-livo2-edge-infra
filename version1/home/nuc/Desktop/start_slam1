@@ -22,14 +22,6 @@ START_RVIZ="${START_RVIZ:-1}"
 PCD_RUN_DIR="$PCD_DIR/slam_${RUN_ID}"
 mkdir -p "$LOG_DIR" "$PCD_DIR"
 
-# Keep old screen logs from growing into multi-GB files. Huge camera logs can slow startup and make failures hard to inspect.
-for old_log in "$LOG_DIR"/*.log; do
-  [ -e "$old_log" ] || continue
-  if [ "$(stat -c %s "$old_log" 2>/dev/null || echo 0)" -gt 104857600 ]; then
-    mv -f "$old_log" "$old_log.$(date +%Y%m%d_%H%M%S).old" 2>/dev/null || true
-  fi
-done
-
 COLMAP_DIR="$HOME/catkin_ws/src/FAST-LIVO2/Log/Colmap"
 COLMAP_IMAGE_DIR="$COLMAP_DIR/images"
 COLMAP_IMAGE_ARCHIVE_DIR="$COLMAP_IMAGE_DIR"
@@ -259,55 +251,19 @@ sleep 5
 
 echo "[8/9] Check required topics"
 CHECK_ENV='source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; export ROS_PACKAGE_PATH=$HOME/ws_livox/src:$ROS_PACKAGE_PATH; export PYTHONPATH=$HOME/ws_livox/devel/lib/python3/dist-packages:$PYTHONPATH'
-
-check_hz_once() {
-  local topic="$1"
-  bash -lc "$CHECK_ENV; timeout 8 rostopic hz $topic" 2>&1 || true
-}
-
-wait_hz() {
+check_hz() {
   local topic="$1"
   local log_name="$2"
-  local attempts="${3:-8}"
-  local out=""
-  local i
-  for i in $(seq 1 "$attempts"); do
-    echo "Waiting for measurable data on $topic (attempt $i/$attempts)..."
-    out="$(check_hz_once "$topic")"
-    printf '%s
+  local out
+  out="$(bash -lc "$CHECK_ENV; timeout 7 rostopic hz $topic" 2>&1 || true)"
+  printf '%s
 ' "$out"
-    if printf '%s
-' "$out" | grep -q 'average rate:'; then
-      return 0
-    fi
-    sleep 2
-  done
-  echo "ERROR: $topic has no measurable data after $attempts attempts; see $log_name"
-  return 1
+  printf '%s
+' "$out" | grep -q 'average rate:' || { echo "ERROR: $topic has no measurable data; see $log_name"; exit 1; }
 }
-
-restart_camera_stack() {
-  echo "Restarting camera driver and image stamp relay, then waiting for real image frames..."
-  screen -S uvc_image_stamp_relay -X quit >/dev/null 2>&1 || true
-  screen -S camera_driver -X quit >/dev/null 2>&1 || true
-  sleep 2
-  sudo udevadm settle --timeout=5 || true
-  /usr/local/bin/wait_fast_livo_camera 45 || exit 1
-  screen -L -Logfile "$LOG_DIR/camera_driver.log" -dmS camera_driver bash -lc 'source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; rosrun mvs_ros_driver uvc_driver ~/catkin_ws/src/mvs_ros_driver/config/uvc_camera.yaml'
-  sleep 4
-  screen -L -Logfile "$LOG_DIR/uvc_image_stamp_relay.log" -dmS uvc_image_stamp_relay bash -lc 'source /opt/ros/noetic/setup.bash; source ~/catkin_ws/devel/setup.bash; python3 ~/catkin_ws/src/FAST-LIVO2/scripts/uvc_image_stamp_relay.py _min_interval:=0.0'
-  sleep 4
-}
-
-wait_hz /livox/lidar "$LOG_DIR/livox_driver.log and $LOG_DIR/mid360_repub.log" 8
-wait_hz /livox/imu "$LOG_DIR/mid360_imu_repub.log" 8
-
-# First boot/run after plugging the camera may expose /dev/video* before frames are actually delivered.
-# Require real ROS image frames before FAST-LIVO2 starts; if not ready, restart camera stack once.
-if ! wait_hz /uvc_camera/image_sync "$LOG_DIR/camera_driver.log and $LOG_DIR/uvc_image_stamp_relay.log" 10; then
-  restart_camera_stack
-  wait_hz /uvc_camera/image_sync "$LOG_DIR/camera_driver.log and $LOG_DIR/uvc_image_stamp_relay.log" 12 || exit 1
-fi
+check_hz /livox/lidar "$LOG_DIR/livox_driver.log and $LOG_DIR/mid360_repub.log"
+check_hz /livox/imu "$LOG_DIR/mid360_imu_repub.log"
+check_hz /uvc_camera/image_sync "$LOG_DIR/camera_driver.log and $LOG_DIR/uvc_image_stamp_relay.log"
 
 start_colmap_image_archiver "colmap_${RUN_ID}"
 
@@ -331,8 +287,9 @@ if screen -ls | grep -q 'fast_livo_mapping'; then
     if pgrep -af 'rviz.*fast_livo2.rviz' >/dev/null; then
       echo "OK: RViz process is running on the NUC desktop."
     else
-      echo "WARNING: RViz process not detected. FAST-LIVO2 mapping is running; if this script was started over SSH, RViz may not attach to the desktop session."
-      echo "See $LOG_DIR/fast_livo_mapping.log if you expected RViz to open on the NUC desktop."
+      echo "ERROR: RViz process not found; see $LOG_DIR/fast_livo_mapping.log"
+      tail -n 120 "$LOG_DIR/fast_livo_mapping.log" || true
+      exit 1
     fi
   fi
   echo "This run id is: $RUN_ID"

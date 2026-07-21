@@ -1,8 +1,0 @@
-backup_time=20260721_161649
-host=nuc-NUC15CRKU5
-purpose=before shutter timestamp fix
-copied /home/nuc/catkin_ws/backup/version1/home/nuc/Desktop/start_slam1 -> /home/nuc/catkin_ws/backup/version2/start_slam1
-missing /home/nuc/Desktop/start_slam1
-copied /home/nuc/catkin_ws/src/mvs_ros_driver -> /home/nuc/catkin_ws/backup/version2/mvs_ros_driver
-copied /home/nuc/catkin_ws/src/FAST-LIVO2/scripts/uvc_image_stamp_relay.py -> /home/nuc/catkin_ws/backup/version2/uvc_image_stamp_relay.py
-missing /home/nuc/catkin_ws/src/FAST-LIVO2/launch/mapping_mid360.launch

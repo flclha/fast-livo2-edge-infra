@@ -1,8 +1,0 @@
-prefix=/home/nuc/catkin_ws/install
-
-Name: fast_calib
-Description: Description of fast_calib
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: roscpp sensor_msgs pcl_conversions pcl_ros

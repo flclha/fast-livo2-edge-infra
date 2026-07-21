@@ -1,2 +1,0 @@
-FAST-Calib:FAST-LIVO2:mvs_ros_driver:rpg_vikit/vikit_common:rpg_vikit/vikit_py:rpg_vikit/vikit_ros
--DCATKIN_DEVEL_PREFIX=/home/nuc/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/nuc/catkin_ws/install -G Unix Makefiles

@@ -1,1 +1,0 @@
-/usr/lib/ccache/c++ -fPIC  -pthread -fexceptions -O3 -DNDEBUG -O3 -march=native -mtune=native -funroll-loops -shared -Wl,-soname,libpre.so -o /home/nuc/catkin_ws/devel/lib/libpre.so CMakeFiles/pre.dir/src/preprocess.cpp.o 

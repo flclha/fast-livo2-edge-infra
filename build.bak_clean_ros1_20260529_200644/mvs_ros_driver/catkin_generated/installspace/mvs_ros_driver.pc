@@ -1,8 +1,0 @@
-prefix=/home/nuc/catkin_ws/install
-
-Name: mvs_ros_driver
-Description: Description of mvs_ros_driver
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: roscpp rospy std_msgs

@@ -1,1 +1,0 @@
-/usr/lib/ccache/c++ -fPIC  -pthread -fexceptions -O3 -DNDEBUG -O3 -march=native -mtune=native -funroll-loops -shared -Wl,-soname,libvio.so -o /home/nuc/catkin_ws/devel/lib/libvio.so CMakeFiles/vio.dir/src/vio.cpp.o CMakeFiles/vio.dir/src/frame.cpp.o CMakeFiles/vio.dir/src/visual_point.cpp.o 
