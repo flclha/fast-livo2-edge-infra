@@ -1,0 +1,3 @@
+[submodule "catkin_ws/src/rpg_vikit"]
+	path = catkin_ws/src/rpg_vikit
+	url = https://github.com/xuankuzcr/rpg_vikit.git

@@ -1,0 +1,29 @@
+# Runtime datasets, logs and generated outputs
+logs/
+sync_validation/
+offline_results/
+backups/
+
+# ROS build and runtime products
+catkin_ws/build/
+catkin_ws/devel/
+catkin_ws/install/
+catkin_ws/log/
+catkin_ws/src/FAST-LIVO2/Log/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Large capture and point-cloud files
+*.bag
+*.pcd
+*.db3
+*.mcap
+*.pcap
+*.hea
+
+# Runtime logs and editor artifacts
+*.log
+*~
+.DS_Store
